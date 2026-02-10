@@ -1,0 +1,15 @@
+{
+  "name": "talenta-automation",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Automation script for Talenta HR attendance",
+  "scripts": {
+    "clock-in": "node talenta-clock-in.js",
+    "clock-out": "node talenta-clock-out.js",
+    "install-browsers": "npx playwright install"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "dotenv": "^16.3.1"
+  }
+}
