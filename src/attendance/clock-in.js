@@ -70,8 +70,10 @@ async function main() {
     await page.screenshot({ path: 'error-clock-in.png' });
   }
 
-  // await browser.close();
-  // process.exit(success ? 0 : 1);
+  setTimeout(async () => {
+    await browser.close();
+    process.exit(success ? 0 : 1);
+  }, 3000);
 }
 
 main();
