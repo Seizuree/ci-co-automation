@@ -1,84 +1,93 @@
-# Setup Task Scheduler untuk Talenta Automation
+# Setting Up Windows Task Scheduler for Talenta Automation
 
-## Langkah-langkah Setup Manual
+This guide walks you through manually creating scheduled tasks to run the clock in/out scripts automatically every day.
 
-### 1. Buka Task Scheduler
-- Tekan `Win + R`
-- Ketik `taskschd.msc`
-- Tekan Enter
+> For an automated setup, run `scripts/setup-schedule.ps1` as Administrator instead.
 
-### 2. Setup Clock In (08:50)
+## Prerequisites
 
-1. **Create Basic Task**
-   - Klik "Create Basic Task..." di panel kanan
-   
-2. **General**
+- The project is set up and `pnpm run clock-in` / `pnpm run clock-out` work correctly when run manually.
+- You know the full path to the project directory (the batch scripts default to `D:\ci-co-automation`).
+
+## Step 1: Open Task Scheduler
+
+1. Press `Win + R`
+2. Type `taskschd.msc`
+3. Press Enter
+
+## Step 2: Create the Clock In Task (08:50 AM)
+
+1. Click "Create Basic Task..." in the right panel.
+
+2. **Name and Description**
    - Name: `Talenta Clock In`
-   - Description: `Automated clock in for Talenta`
-   - Klik Next
+   - Description: `Automated daily clock in for Talenta HR`
+   - Click Next
 
 3. **Trigger**
-   - Pilih "Daily"
-   - Klik Next
+   - Select "Daily"
+   - Click Next
 
-4. **Daily**
-   - Start: Pilih tanggal hari ini
+4. **Daily Settings**
+   - Start date: today's date
    - Start time: `8:50:00 AM`
-   - Recur every: `1 days`
-   - Klik Next
+   - Recur every: `1` days
+   - Click Next
 
 5. **Action**
-   - Pilih "Start a program"
-   - Klik Next
+   - Select "Start a program"
+   - Click Next
 
-6. **Start a Program**
-   - Program/script: `D:\automation\clock-in.bat`
-   - Klik Next
+6. **Program/Script**
+   - Program/script: `D:\ci-co-automation\scripts\clock-in.bat`
+   - Click Next
 
 7. **Finish**
-   - Review settings
-   - Klik Finish
+   - Review the summary and click Finish
 
-### 3. Setup Clock Out (18:05)
+## Step 3: Create the Clock Out Task (6:05 PM)
 
-1. **Create Basic Task**
-   - Klik "Create Basic Task..." di panel kanan
-   
-2. **General**
+1. Click "Create Basic Task..." in the right panel.
+
+2. **Name and Description**
    - Name: `Talenta Clock Out`
-   - Description: `Automated clock out for Talenta`
-   - Klik Next
+   - Description: `Automated daily clock out for Talenta HR`
+   - Click Next
 
 3. **Trigger**
-   - Pilih "Daily"
-   - Klik Next
+   - Select "Daily"
+   - Click Next
 
-4. **Daily**
-   - Start: Pilih tanggal hari ini
+4. **Daily Settings**
+   - Start date: today's date
    - Start time: `6:05:00 PM`
-   - Recur every: `1 days`
-   - Klik Next
+   - Recur every: `1` days
+   - Click Next
 
 5. **Action**
-   - Pilih "Start a program"
-   - Klik Next
+   - Select "Start a program"
+   - Click Next
 
-6. **Start a Program**
-   - Program/script: `D:\automation\clock-out.bat`
-   - Klik Next
+6. **Program/Script**
+   - Program/script: `D:\ci-co-automation\scripts\clock-out.bat`
+   - Click Next
 
 7. **Finish**
-   - Review settings
-   - Klik Finish
+   - Review the summary and click Finish
 
-## Verifikasi
+## Verification
 
-Setelah setup, Anda bisa lihat kedua task di Task Scheduler Library:
-- `Talenta Clock In` - akan jalan setiap hari jam 08:50
-- `Talenta Clock Out` - akan jalan setiap hari jam 18:05
+After setup, you should see both tasks in the Task Scheduler Library:
 
-## Catatan Penting
+| Task Name | Schedule |
+|---|---|
+| Talenta Clock In | Daily at 08:50 AM |
+| Talenta Clock Out | Daily at 06:05 PM |
 
-- Pastikan komputer dalam keadaan hidup di jam tersebut
-- Jika komputer sleep/hibernate, task tidak akan jalan
-- Untuk testing, bisa klik kanan pada task → "Run" untuk test manual
+To test a task immediately, right-click on it and select "Run".
+
+## Important Notes
+
+- The computer must be powered on and awake at the scheduled times. Tasks will not run if the machine is in sleep or hibernate mode.
+- If you move the project to a different directory, update the paths in both the batch files (`scripts/clock-in.bat`, `scripts/clock-out.bat`) and the Task Scheduler entries.
+- To remove the tasks, right-click on each one in Task Scheduler Library and select "Delete".

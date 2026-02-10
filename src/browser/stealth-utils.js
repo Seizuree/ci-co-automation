@@ -1,4 +1,7 @@
 import { chromium } from 'playwright';
+import { createLogger } from '../core/logger.js';
+
+const log = createLogger('STEALTH');
 
 // Random delay helper
 export function randomDelay(min = 500, max = 1500) {
@@ -74,7 +77,7 @@ export async function launchStealthBrowser() {
 
 
 // Human-like click: hover → random pause → click with delay
-export async function humanClick(page, locator, log = console.log) {
+export async function humanClick(page, locator) {
   // Wait for element to be visible and enabled
   await locator.waitFor({ state: 'visible', timeout: 15000 });
 
@@ -89,19 +92,19 @@ export async function humanClick(page, locator, log = console.log) {
   // Try normal click with mousedown delay
   try {
     await locator.click({ delay: randomDelay(80, 200) });
-    log('✔ Normal click executed');
+    log.success('Normal click executed');
     return;
   } catch (e) {
-    log(`Normal click failed: ${e.message}, trying fallback...`);
+    log.warn(`Normal click failed: ${e.message}, trying fallback...`);
   }
 
   // Fallback 1: Force click
   try {
     await locator.click({ force: true, delay: randomDelay(80, 200) });
-    log('✔ Force click executed');
+    log.success('Force click executed');
     return;
   } catch (e) {
-    log(`Force click failed: ${e.message}, trying dispatch...`);
+    log.warn(`Force click failed: ${e.message}, trying dispatch...`);
   }
 
   // Fallback 2: Manual dispatch mouse events
@@ -116,5 +119,5 @@ export async function humanClick(page, locator, log = console.log) {
     el.dispatchEvent(new MouseEvent('mouseup', opts));
     el.dispatchEvent(new MouseEvent('click', opts));
   });
-  log('✔ Dispatch events executed');
+  log.success('Dispatch events executed');
 }

@@ -1,85 +1,119 @@
 # Talenta HR Automation
 
-Automation script untuk clock in/out otomatis di Talenta HR menggunakan Playwright.
+Automated clock in/out for [Talenta HR](https://hr.talenta.co) using Playwright with stealth browser techniques.
 
-## Files
+## Overview
 
-- `talenta-clock-in.js` - Script untuk clock in
-- `talenta-clock-out.js` - Script untuk clock out
-- `clock-in.bat` - Batch file untuk menjalankan clock in
-- `clock-out.bat` - Batch file untuk menjalankan clock out
-- `setup-schedule.ps1` - PowerShell script untuk setup otomatis
-- `setup-task-scheduler.md` - Panduan manual setup Task Scheduler
-- `.env.example` - Template file untuk credentials
+This tool automates daily attendance on Talenta HR by launching a stealth Chromium browser, logging in with your credentials, and clicking the Clock In / Clock Out button. It includes human-like interaction patterns (hover, random delays, fallback click strategies) to avoid bot detection.
+
+## Project Structure
+
+```
+├── src/
+│   ├── attendance/
+│   │   ├── auth.js            # Login handler (auto-detects if already logged in)
+│   │   ├── clock-in.js        # Clock in script with retry logic
+│   │   └── clock-out.js       # Clock out script with retry logic
+│   ├── browser/
+│   │   └── stealth-utils.js   # Stealth browser launcher & human-like click helpers
+│   └── core/
+│       └── logger.js          # Timestamped logger using consola
+├── scripts/
+│   ├── clock-in.bat           # Batch wrapper for clock in
+│   ├── clock-out.bat          # Batch wrapper for clock out
+│   └── setup-schedule.ps1     # PowerShell script to register Windows scheduled tasks
+├── .env.example               # Credential template
+├── setup-task-scheduler.md    # Manual Task Scheduler setup guide
+└── package.json
+```
 
 ## Features
 
-- ✅ ES Module support (modern JavaScript)
-- ✅ Environment variables untuk credentials yang aman
-- ✅ Retry logic untuk handle page loading yang lambat
-- ✅ Console logging untuk tracking progress
-- ✅ Error handling yang robust
-- ✅ Automated scheduling dengan Task Scheduler
+- Stealth Chromium browser with anti-detection patches (webdriver flag, fake plugins, chrome runtime spoofing)
+- Human-like interactions: hover before click, randomized delays, scroll into view
+- Multi-fallback click strategy (normal → force → manual event dispatch)
+- Geolocation spoofing (Jakarta, Indonesia) with `id-ID` locale and `Asia/Jakarta` timezone
+- Auto-login with session detection (skips login if already authenticated)
+- Retry logic (up to 3 attempts) with error screenshots on final failure
+- API response interception to confirm attendance was recorded
+- Timestamped console logging via consola
+- Windows Task Scheduler integration for daily automation
+
+## Requirements
+
+- Node.js v16+
+- pnpm (or npm)
+- Windows OS (for Task Scheduler automation)
+- Stable internet connection
+- Computer must be awake at scheduled times
 
 ## Setup
 
-### 1. Install Dependencies
+### 1. Install dependencies
+
 ```bash
-npm install
-npx playwright install
+pnpm install
 ```
 
-### 2. Setup Credentials
+Playwright browsers are installed automatically via the `postinstall` script. To install them manually:
+
 ```bash
-# Copy template file
+pnpm run install-browsers
+```
+
+### 2. Configure credentials
+
+```bash
 copy .env.example .env
 ```
-Edit file `.env` dengan credentials Anda:
+
+Edit `.env` with your Talenta account:
+
 ```
-TALENTA_EMAIL=email-anda@example.com
-TALENTA_PASSWORD=password-anda
+TALENTA_EMAIL=your-email@example.com
+TALENTA_PASSWORD=your-password
 ```
 
-### 3. Test Manual
+### 3. Test manually
+
 ```bash
-# Test clock in
-npm run clock-in
+# Run clock in
+pnpm run clock-in
 
-# Test clock out
-npm run clock-out
+# Run clock out
+pnpm run clock-out
 ```
 
-## Automation Schedule
+## Scheduling
 
-### Otomatis (PowerShell)
-Jalankan sebagai Administrator:
+### Automated setup (PowerShell)
+
+Run as Administrator:
+
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-.\setup-schedule.ps1
+.\scripts\setup-schedule.ps1
 ```
 
-### Manual (Task Scheduler)
-Ikuti panduan di `setup-task-scheduler.md`
+This registers two daily Windows scheduled tasks:
+- **Talenta Clock In** at 08:55
+- **Talenta Clock Out** at 18:05
 
-## Schedule
-- **Clock In**: Setiap hari jam 08:50
-- **Clock Out**: Setiap hari jam 18:05
+### Manual setup (Task Scheduler)
+
+See [setup-task-scheduler.md](setup-task-scheduler.md) for step-by-step instructions.
 
 ## Troubleshooting
 
-### Page Loading Issues
-Script sudah dilengkapi dengan retry logic:
-- Tunggu maksimal 10 detik untuk page load
-- Jika belum load, retry setiap 3 detik
-- Console log akan menampilkan progress
+| Issue | Solution |
+|---|---|
+| Login timeout | Check your `.env` credentials and internet connection |
+| Clock In/Out button not found | Talenta UI may have changed; inspect the page and update selectors |
+| Task doesn't run on schedule | Ensure the computer is awake (not in sleep/hibernate) at the scheduled time |
+| Bot detection | The stealth utils should handle this, but Talenta may update their detection; check `stealth-utils.js` |
+| Script errors | Check the error screenshot (`error-clock-in.png` / `error-clock-out.png`) saved in the project root |
 
-### Common Issues
-- Pastikan file `.env` sudah dibuat dan diisi dengan benar
-- Pastikan koneksi internet stabil
-- Jika error timeout, coba jalankan ulang script
+## Notes
 
-## Requirements
-- Node.js (v16 atau lebih baru)
-- Windows (untuk Task Scheduler)
-- Koneksi internet
-- Komputer harus hidup saat jadwal berjalan
+- The batch scripts assume the project is located at `D:\ci-co-automation`. Update the path in `scripts/clock-in.bat` and `scripts/clock-out.bat` if your project is in a different directory.
+- The browser launches in headed mode (`headless: false`) so you can observe the automation. Change to `headless: true` in `stealth-utils.js` for silent operation.
