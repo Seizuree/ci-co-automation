@@ -29,6 +29,29 @@ jobs:
             echo "enabled=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Notify Telegram (skipped)
+        if: steps.check.outputs.enabled == 'false'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: |
+          MSG="⏸️ <b>Clock Out Skipped</b>%0A"
+          MSG+="─────────────────%0A"
+          MSG+="CRON_ENABLED is <b>false</b>%0A"
+          MSG+="Set to <b>true</b> in repo variables to resume."
+
+          BUTTONS='{"inline_keyboard":[[{"text":"📋 View Run","url":"'"${RUN_URL}"'"},{"text":"⚙️ Repo Settings","url":"'"${{ github.server_url }}/${{ github.repository }}/settings/variables/actions"'"}]]}'
+
+          curl -s -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="true" \
+            --data-urlencode "text=${MSG}" \
+            --data-urlencode "reply_markup=${BUTTONS}"
+
   clock-out:
     needs: check-enabled
     if: needs.check-enabled.outputs.enabled == 'true'
@@ -225,14 +248,14 @@ jobs:
           if [ -n "$FAILURE_NOTE" ]; then
             MSG+="${NL}${FAILURE_NOTE}${NL}"
           fi
-          MSG+="${NL}🔗 <a href='${RUN_URL}'>View Run</a>"
 
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d parse_mode="HTML" \
             -d disable_web_page_preview="true" \
-            --data-urlencode "text=${MSG}")
+            --data-urlencode "text=${MSG}" \
+            --data-urlencode "reply_markup={\"inline_keyboard\":[[{\"text\":\"📋 View Run\",\"url\":\"${RUN_URL}\"}]]}")
 
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
           BODY=$(echo "$RESPONSE" | sed '$d')
