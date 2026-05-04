@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { launchStealthBrowser, humanClick, randomDelay } from '../browser/stealth-utils.js';
 import { createLogger } from '../core/logger.js';
 import { ensureLoggedIn, logout } from './auth.js';
+import { detectSchedule } from './schedule.js';
 
 dotenv.config();
 
@@ -14,6 +15,14 @@ async function clockOut(page) {
 
   // Human-like pause, wait for page to fully render
   await page.waitForTimeout(randomDelay(2000, 4000));
+
+  // Detect schedule from dropdown — skip if no WFH/WFO found (holiday/day off)
+  const schedule = await detectSchedule(page, log);
+
+  if (!schedule.type) {
+    log.info('No WFH/WFO schedule found — skipping clock out (holiday/day off).');
+    return 'skipped';
+  }
 
   log.info('Waiting for Clock Out button...');
   const clockOutButton = page.getByRole('button', { name: 'Clock Out', exact: true });
@@ -66,7 +75,19 @@ async function main() {
     try {
       log.info(`Clock Out attempt ${attempt}/3`);
       await ensureLoggedIn(page, log);
-      success = await clockOut(page);
+      const result = await clockOut(page);
+
+      // If skipped (no schedule), exit gracefully — job won't fail
+      if (result === 'skipped') {
+        await logout(page, log);
+        setTimeout(async () => {
+          await browser.close();
+          process.exit(0);
+        }, 3000);
+        return;
+      }
+
+      success = result;
       if (success) break;
     } catch (error) {
       log.error(`Attempt ${attempt} error: ${error.message}`);
