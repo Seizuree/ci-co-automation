@@ -1,86 +1,59 @@
 import { randomDelay } from '../browser/stealth-utils.js';
 
 /**
- * Detect schedule type from the Live Attendance page.
+ * Detect today's schedule type from the Live Attendance page.
  *
- * The page layout shows:
- *   "Schedule, DD MMM YYYY"
- *   "<type>"              ← "O" (Office/WFO), "H" (Home/WFH), or other
- *   "HH:MM AM - HH:MM PM"
+ * Talenta renders a BootstrapVue <b-form-select> inside .schedule-time, e.g.
+ *   <option value="0">5 May 2026 - O (09:00 AM - 06:00 PM)</option>
+ * The single letter between " - " and " (" indicates Office (O → WFO) or
+ * Home (H → WFH). Today's schedule is the first/selected option.
  *
- * Detection strategy:
- * 1. Look for the schedule section text below the date line
- * 2. Check for "O" or "H" as the schedule type indicator
- * 3. Also still supports full "WFO"/"WFH" text as fallback
+ * Returns { type: 'WFO' | 'WFH' | null, text: string }.
+ * - null → no schedule (holiday/cuti) → caller should skip clock in/out.
  *
- * Returns { type: 'WFO' | 'WFH' | null, text: string }
- *
- * - WFO/WFH detected → proceed with clock in/out
- * - null → no schedule (holiday, day off, cuti) → skip
+ * Note: BootstrapVue's `id="__BVID__N"` is auto-generated and unstable, so we
+ * scope by stable structural classes (`schedule-time`, `custom-select`) instead.
  */
 export async function detectSchedule(page, log) {
   log.info('Detecting schedule type...');
 
-  // Wait for page to stabilize
   await page.waitForTimeout(randomDelay(1000, 2000));
 
-  // Try to find the schedule type text that appears between the "Schedule, <date>" line
-  // and the time range (e.g. "09:00 AM - 06:00 PM")
-  const scheduleType = await page.evaluate(() => {
-    // Strategy: find the element containing "Schedule," text, then look within
-    // its parent container for the schedule type (O/H/WFO/WFH)
-    const allElements = document.querySelectorAll('*');
-    let scheduleContainer = null;
+  const scheduleSelect = page
+    .locator('div.schedule-time select.custom-select')
+    .first();
 
-    // Find the element that directly contains "Schedule," text
-    for (const el of allElements) {
-      // Check direct text content (not children) to find the exact element
-      if (el.children.length < 10 && /^Schedule,\s/i.test(el.textContent?.trim())) {
-        scheduleContainer = el.closest('div, section, article, td') || el.parentElement;
-        break;
-      }
-    }
-
-    if (!scheduleContainer) return null;
-
-    // Get text content of the container and split into lines
-    const containerText = scheduleContainer.innerText || '';
-    const lines = containerText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-
-    // Find the "Schedule," line within this container
-    const scheduleIdx = lines.findIndex(l => /^Schedule,/i.test(l));
-    if (scheduleIdx === -1) return null;
-
-    // Look at lines between "Schedule, <date>" and the time range
-    for (let i = scheduleIdx + 1; i < Math.min(scheduleIdx + 4, lines.length); i++) {
-      const line = lines[i];
-
-      // Skip if it's the time range line (e.g. "09:00 AM - 06:00 PM")
-      if (/\d{1,2}:\d{2}\s*(AM|PM)/i.test(line)) continue;
-
-      // Check for full WFH/WFO text
-      if (/WFO/i.test(line)) return 'WFO';
-      if (/WFH/i.test(line)) return 'WFH';
-
-      // Check for single letter "O" (Office) or "H" (Home)
-      if (/^O$/i.test(line)) return 'WFO';
-      if (/^H$/i.test(line)) return 'WFH';
-    }
-
-    return null;
-  });
-
-  if (scheduleType === 'WFO') {
-    log.success('Schedule detected: WFO (Work From Office)');
-    return { type: 'WFO', text: 'O' };
+  try {
+    await scheduleSelect.waitFor({ state: 'attached', timeout: 5000 });
+  } catch {
+    log.warn('Schedule dropdown not found — likely holiday/day off.');
+    return { type: null, text: '' };
   }
 
-  if (scheduleType === 'WFH') {
-    log.success('Schedule detected: WFH (Work From Home)');
+  const selectedText = await scheduleSelect.evaluate((sel) => {
+    const opt = sel.options[sel.selectedIndex] ?? sel.options[0];
+    return (opt?.text ?? '').trim();
+  });
+
+  log.info(`Schedule option: "${selectedText}"`);
+
+  const m = selectedText.match(/\s-\s*([OH])\s*\(/i);
+  if (m) {
+    const letter = m[1].toUpperCase();
+    const type = letter === 'O' ? 'WFO' : 'WFH';
+    log.success(`Schedule detected: ${type}`);
+    return { type, text: letter };
+  }
+
+  if (/WFO/i.test(selectedText)) {
+    log.success('Schedule detected: WFO (legacy text)');
+    return { type: 'WFO', text: 'O' };
+  }
+  if (/WFH/i.test(selectedText)) {
+    log.success('Schedule detected: WFH (legacy text)');
     return { type: 'WFH', text: 'H' };
   }
 
-  // No schedule type found
-  log.warn('No O/H schedule type found — likely holiday/day off');
+  log.warn('No O/H token in option text — likely holiday/day off.');
   return { type: null, text: '' };
 }
