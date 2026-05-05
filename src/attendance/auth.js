@@ -1,6 +1,14 @@
+const LIVE_ATTENDANCE_URL = 'https://hr.talenta.co/live-attendance';
+
+/**
+ * Ensure the browser is logged in and ends at /live-attendance.
+ *
+ * Contract: when this returns, page.url() contains '/live-attendance'.
+ * Callers can rely on this and skip their own navigation.
+ */
 export async function ensureLoggedIn(page, log) {
-  log.start('Navigating to Talenta...');
-  await page.goto('https://hr.talenta.co/live-attendance', { waitUntil: 'domcontentloaded', timeout: 120000 });
+  log.start('Navigating to Live Attendance...');
+  await page.goto(LIVE_ATTENDANCE_URL, { waitUntil: 'domcontentloaded', timeout: 120000 });
   await page.waitForTimeout(3000);
 
   // Check if login form exists (means not logged in yet)
@@ -27,11 +35,19 @@ export async function ensureLoggedIn(page, log) {
   log.start('Signing in...');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
-  // Wait for login form to disappear (means login succeeded)
+  // Wait for login form to disappear (means login succeeded). Robust across
+  // SSO topologies: works whether Talenta hosts login itself or via Mekari SSO.
   log.info('Waiting for login to complete...');
   await emailInput.waitFor({ state: 'hidden', timeout: 120000 });
   await page.waitForTimeout(2000);
   log.success('Login successful');
+
+  // Talenta redirects to dashboard (/) after login, not back to /live-attendance.
+  // Force-navigate so the post-condition holds for callers.
+  if (!page.url().includes('/live-attendance')) {
+    log.info(`Post-login URL is ${page.url()}, navigating to Live Attendance...`);
+    await page.goto(LIVE_ATTENDANCE_URL, { waitUntil: 'domcontentloaded', timeout: 120000 });
+  }
 
   // Wipe credentials from environment only after successful login
   delete process.env.TALENTA_EMAIL;

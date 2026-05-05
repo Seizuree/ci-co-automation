@@ -9,12 +9,14 @@ dotenv.config();
 const log = createLogger('CLOCK-IN');
 
 async function clockIn(page) {
-  // ensureLoggedIn already navigates to /live-attendance, just reload to ensure fresh state
-  log.start('Reloading Live Attendance page...');
-  await page.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
-
-  // Human-like pause, wait for page to fully render
+  // ensureLoggedIn guarantees we're at /live-attendance — just stabilize.
   await page.waitForTimeout(randomDelay(2000, 4000));
+
+  // Defense-in-depth: previous bug silently mis-detected this as "no schedule"
+  // when navigation drifted off-page. Fail loudly instead.
+  if (!page.url().includes('/live-attendance')) {
+    throw new Error(`Expected /live-attendance, got ${page.url()}`);
+  }
 
   // Detect schedule from dropdown — skip if no WFH/WFO found (holiday/day off)
   const schedule = await detectSchedule(page, log);
