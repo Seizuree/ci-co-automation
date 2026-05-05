@@ -62,12 +62,12 @@ async function main() {
       await ensureLoggedIn(page, log);
       const result = await clockIn(page);
 
-      // If skipped (no schedule), exit gracefully — job won't fail
+      // If skipped (no schedule), exit with code 2 for workflow to detect
       if (result === 'skipped') {
         await logout(page, log);
         setTimeout(async () => {
           await browser.close();
-          process.exit(0);
+          process.exit(2);
         }, 3000);
         return;
       }
