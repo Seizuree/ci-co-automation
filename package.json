@@ -6,6 +6,7 @@
   "scripts": {
     "clock-in": "node src/attendance/clock-in.js",
     "clock-out": "node src/attendance/clock-out.js",
+    "validate": "node src/attendance/validate.js",
     "postinstall": "playwright install",
     "install-browsers": "playwright install"
   },
