@@ -5,33 +5,25 @@ import { randomDelay } from '../browser/stealth-utils.js';
  *
  * Layered detection (first hit wins):
  *
- *   1. CURRENT UI — BootstrapVue <select class="custom-select"> inside
- *      .schedule-time, with options like
+ *   1. <select> dropdown — BootstrapVue `<select class="custom-select">`
+ *      inside `.schedule-time`, with options like
  *        "5 May 2026 - O (09:00 AM - 06:00 PM)"
- *      The letter between " - " and " (" is the indicator (O → WFO, H → WFH).
+ *      Still present on Clock Out page.
  *
- *   2. LEGACY UI — text-only block anchored on "Schedule, <date>" header.
- *      Subsequent lines hold the type, e.g.
- *        Schedule, 05 May 2026
- *        O                              ← single letter
- *        09:00 AM - 06:00 PM
- *      or "WFO" / "WFH" full word standalone.
+ *   2. CSS class — `p.schedule-time__type` inside `div.schedule-time`.
+ *      Contains the raw type letter/word (e.g. "O", "H", "WFO", "WFH").
+ *      Used on Clock In page where the select is absent.
+ *
  *
  * Returns { type: 'WFO' | 'WFH' | null, text: string }.
  * - null → no schedule (holiday/cuti) → caller should skip clock in/out.
- *
- * Notes:
- * - BootstrapVue's `id="__BVID__N"` is auto-generated and unstable; we scope
- *   by stable structural classes (`schedule-time`, `custom-select`).
- * - Legacy fallback uses `getByText` anchor instead of scanning the whole
- *   document, per Playwright best practice.
  */
 export async function detectSchedule(page, log) {
   log.info('Detecting schedule type...');
 
   await page.waitForTimeout(randomDelay(1000, 2000));
 
-  // ── Strategy 1: <select> dropdown (current Talenta UI) ────────────────
+  // ── Strategy 1: <select> dropdown (present on Clock Out) ──────────────
   const scheduleSelect = page
     .locator('div.schedule-time select.custom-select')
     .first();
@@ -41,7 +33,7 @@ export async function detectSchedule(page, log) {
     await scheduleSelect.waitFor({ state: 'attached', timeout: 3000 });
     selectAttached = true;
   } catch {
-    // Select absent → fall through to legacy text scan
+    // Select absent → fall through
   }
 
   if (selectAttached) {
@@ -57,42 +49,36 @@ export async function detectSchedule(page, log) {
       return { type, text: type === 'WFO' ? 'O' : 'H' };
     }
 
-    // Select present but no O/H token → authoritative "no work today"
     log.warn('Select found but no O/H token — likely holiday/day off.');
     return { type: null, text: '' };
   }
 
-  // ── Strategy 2: Legacy text fallback (no <select> in DOM) ─────────────
-  log.info('No <select> found — falling back to text scan.');
+  // ── Strategy 2: p.schedule-time__type (present on Clock In) ───────────
+  const typeEl = page.locator('div.schedule-time p.schedule-time__type').first();
 
-  const scheduleLabel = page.getByText(/^Schedule,\s/i).first();
-  if ((await scheduleLabel.count()) === 0) {
-    log.warn('No "Schedule," label found — page may not have loaded yet.');
+  let typeAttached = false;
+  try {
+    await typeEl.waitFor({ state: 'attached', timeout: 5000 });
+    typeAttached = true;
+  } catch {
+    // Not found → fall through
+  }
+
+  if (typeAttached) {
+    const rawText = (await typeEl.textContent()).trim();
+    log.info(`Schedule type element: "${rawText}"`);
+
+    const type = parseScheduleType(rawText);
+    if (type) {
+      log.success(`Schedule detected: ${type} (via .schedule-time__type)`);
+      return { type, text: type === 'WFO' ? 'O' : 'H' };
+    }
+
+    log.warn('schedule-time__type found but no O/H token — likely holiday/day off.');
     return { type: null, text: '' };
   }
 
-  const containerText = await scheduleLabel.evaluate((el) => {
-    const container =
-      el.closest('div, section, article, td') ?? el.parentElement;
-    return (container?.innerText ?? '').trim();
-  });
-  log.info(`Schedule block: "${containerText.replace(/\n/g, ' | ')}"`);
-
-  const lines = containerText
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  for (const line of lines) {
-    if (/^Schedule,/i.test(line)) continue;
-    const type = parseScheduleType(line);
-    if (type) {
-      log.success(`Schedule detected: ${type} (via text fallback)`);
-      return { type, text: type === 'WFO' ? 'O' : 'H' };
-    }
-  }
-
-  log.warn('No O/H/WFO/WFH found — likely holiday/day off.');
+  log.warn('No select or type element found — page may have changed layout.');
   return { type: null, text: '' };
 }
 
