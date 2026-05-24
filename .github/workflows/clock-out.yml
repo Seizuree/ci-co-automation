@@ -34,7 +34,8 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
             github.run_id }}
         run: |
           MSG="⏸️ <b>Clock Out Skipped</b>%0A"
@@ -154,7 +155,8 @@ jobs:
 
       - name: Random delay
         run: |
-          DELAY=$((RANDOM % 121 + 180))
+          # Window: 60–900s (1–15 minutes) for human-like variance
+          DELAY=$((RANDOM % 841 + 60))
           echo "Waiting ${DELAY}s (~$((DELAY / 60))m) before clock out..."
           sleep $DELAY
 
@@ -200,7 +202,8 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
             github.run_id }}
         run: |
           TODAY=$(date +'%A, %d %B %Y')
@@ -237,7 +240,8 @@ jobs:
           JOB_STATUS: ${{ job.status }}
           RUN_NUMBER: ${{ github.run_number }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
             github.run_id }}
           CLOCK_TIME: ${{ steps.clock.outputs.time }}
           START_TIME: ${{ steps.timer.outputs.start }}
