@@ -81,10 +81,10 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-        env:
-          # postinstall is handled by the dedicated step below; skip here
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        # --ignore-scripts prevents the postinstall (playwright install) from
+        # downloading browsers here, BEFORE the cache is restored. Browser
+        # install is handled by the dedicated cached step below.
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -94,6 +94,8 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install Playwright browsers
+        # On cache hit Playwright detects existing binaries and skips the
+        # download, only ensuring OS-level deps. On miss it downloads once.
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Connect to Tailscale
