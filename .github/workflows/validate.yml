@@ -48,9 +48,6 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        # --ignore-scripts prevents the postinstall (playwright install) from
-        # downloading browsers here, BEFORE the cache is restored. Browser
-        # install is handled by the dedicated cached step below.
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Cache Playwright browsers
@@ -60,10 +57,25 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Install Playwright browsers
-        # On cache hit Playwright detects existing binaries and skips the
-        # download, only ensuring OS-level deps. On miss it downloads once.
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Chromium system dependencies
+        run: pnpm exec playwright install-deps chromium
+
+      - name: Install Chromium browser
+        timeout-minutes: 8
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
+        run: |
+          for attempt in 1 2 3; do
+            echo "=== Chromium install attempt ${attempt}/3 ==="
+            if timeout 180 pnpm exec playwright install chromium; then
+              echo "✅ Chromium ready"
+              exit 0
+            fi
+            echo "⚠️ Attempt ${attempt} stalled or failed — retrying with a fresh connection..."
+            sleep 5
+          done
+          echo "❌ Chromium install failed after 3 attempts"
+          exit 1
 
       - name: Connect to Tailscale
         uses: tailscale/github-action@v4
