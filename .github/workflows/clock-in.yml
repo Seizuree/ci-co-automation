@@ -110,77 +110,10 @@ jobs:
           echo "❌ Chromium install failed after 3 attempts"
           exit 1
 
-      - name: Connect to Tailscale
-        uses: tailscale/github-action@v4
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-
-      - name: Route traffic through exit node
-        env:
-          TS_EXIT_NODES: ${{ secrets.TS_EXIT_NODE }}
-        run: |
-          # Parse comma-separated exit nodes from secret
-          IFS=',' read -ra NODES <<< "$TS_EXIT_NODES"
-          echo "Found ${#NODES[@]} exit node(s) to try"
-
-          for i in "${!NODES[@]}"; do
-            NODE="${NODES[$i]// /}"  # trim whitespace
-            NODE_NUM=$((i + 1))
-            echo ""
-            echo "========================================="
-            echo "Exit node ${NODE_NUM}/${#NODES[@]}: ${NODE:0:8}***"
-            echo "========================================="
-
-            for attempt in 1 2 3; do
-              echo "--- Attempt ${attempt}/3 for node ${NODE_NUM} ---"
-              sudo -E tailscale set --exit-node="$NODE" --accept-routes
-              sleep 8
-
-              COUNTRY=$(curl -s --max-time 15 https://ipinfo.io/json | jq -r '.country // empty')
-              echo "Detected country: '${COUNTRY}'"
-
-              if [ "$COUNTRY" = "ID" ]; then
-                echo "✅ Exit node active — traffic routed through Indonesia"
-                curl -s https://ipinfo.io/json | jq '{ip, city, region, country}'
-                exit 0
-              fi
-
-              echo "⚠️ Country is '${COUNTRY}', expected 'ID'."
-              sudo -E tailscale set --exit-node= 2>/dev/null || true
-              sleep 3
-            done
-
-            echo "❌ Node ${NODE_NUM} failed after 3 attempts, moving to next..."
-          done
-
-          echo ""
-          echo "❌ All ${#NODES[@]} exit node(s) failed. Dumping diagnostics:"
-          sudo tailscale status || true
-          exit 1
-
-      - name: Warmup & measure latency
-        run: |
-          echo "Warming up connection to hr.talenta.co..."
-          TOTAL=0
-          for i in 1 2 3; do
-            TIME=$(curl -o /dev/null -s -w "%{time_total}" --max-time 30 https://hr.talenta.co)
-            MS=$(echo "$TIME * 1000" | bc | cut -d. -f1)
-            echo "  Request ${i}: ${MS}ms"
-            TOTAL=$(echo "$TOTAL + $TIME" | bc)
-          done
-          AVG=$(echo "scale=1; $TOTAL / 3" | bc)
-          AVG_MS=$(echo "$AVG * 1000" | bc | cut -d. -f1)
-          echo "Average latency: ${AVG_MS}ms"
-          if [ "$(echo "$AVG > 30" | bc)" -eq 1 ]; then
-            echo "::warning::High average latency (${AVG_MS}ms) — Playwright timeouts set to 120s to compensate"
-          fi
-
       - name: Random delay
         run: |
-          # Window: 60–900s (1–15 minutes) for human-like variance
-          DELAY=$((RANDOM % 841 + 60))
+          # Window: 60–1200s (1–20 minutes) for human-like variance
+          DELAY=$((RANDOM % 1141 + 60))
           echo "Waiting ${DELAY}s (~$((DELAY / 60))m) before clock in..."
           sleep $DELAY
 
