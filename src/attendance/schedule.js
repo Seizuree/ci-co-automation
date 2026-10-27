@@ -79,6 +79,17 @@ export async function detectSchedule(page, log) {
   }
 
   log.warn('No select or type element found — page may have changed layout.');
+
+  try {
+    await page.screenshot({ path: 'debug-schedule.png', fullPage: true });
+    const html = await page.content();
+    const fs = await import('fs');
+    fs.writeFileSync('debug-schedule.html', html, 'utf8');
+    log.info('Debug snapshot saved: debug-schedule.png + debug-schedule.html');
+  } catch (e) {
+    log.warn(`Failed to save debug snapshot: ${e.message}`);
+  }
+
   return { type: null, text: '' };
 }
 

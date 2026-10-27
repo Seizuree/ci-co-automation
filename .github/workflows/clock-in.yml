@@ -163,6 +163,17 @@ jobs:
           GEO_LAT: ${{ steps.geo.outputs.lat }}
           GEO_LNG: ${{ steps.geo.outputs.lng }}
 
+      - name: Upload schedule debug snapshot
+        if: steps.run.outputs.schedule_skipped == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: debug-schedule-clock-in-${{ github.run_number }}
+          path: |
+            debug-schedule.png
+            debug-schedule.html
+          retention-days: 3
+          if-no-files-found: ignore
+
       - name: Notify Telegram (schedule not found)
         if: steps.run.outputs.schedule_skipped == 'true'
         env:
@@ -181,13 +192,15 @@ jobs:
           MSG+="Kemungkinan: holiday, day off, atau perubahan layout.${NL}"
           MSG+="Clock In di-skip untuk hari ini."
 
+          ARTIFACTS_URL="${RUN_URL}#artifacts"
+
           curl -s -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d parse_mode="HTML" \
             -d disable_web_page_preview="true" \
             --data-urlencode "text=${MSG}" \
-            --data-urlencode "reply_markup={\"inline_keyboard\":[[{\"text\":\"📋 View Run\",\"url\":\"${RUN_URL}\"}]]}"
+            --data-urlencode "reply_markup={\"inline_keyboard\":[[{\"text\":\"📋 View Run\",\"url\":\"${RUN_URL}\"},{\"text\":\"📎 Debug Snapshot\",\"url\":\"${ARTIFACTS_URL}\"}]]}"
 
       - name: Upload error screenshot
         if: failure()
