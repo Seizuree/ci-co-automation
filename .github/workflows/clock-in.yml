@@ -73,7 +73,7 @@ jobs:
 
       - uses: pnpm/action-setup@v5
         with:
-          version: 9
+          version: 10
 
       - uses: actions/setup-node@v6
         with:
@@ -84,7 +84,7 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -119,18 +119,27 @@ jobs:
 
       - name: Determine geolocation
         id: geo
+        env:
+          LOCATION_OVERRIDE: ${{ vars.LOCATION_OVERRIDE }}
         run: |
-          DOW=$(date -u +%u)
-          if [ "$DOW" = "1" ] || [ "$DOW" = "5" ]; then
-            echo "Monday/Friday — using alternate location"
-            echo "lat=-6.209077123779666" >> $GITHUB_OUTPUT
-            echo "lng=106.63438083176038" >> $GITHUB_OUTPUT
-            echo "label=Home (Mon/Fri)" >> $GITHUB_OUTPUT
+          if [ "$LOCATION_OVERRIDE" = "gatsu" ]; then
+            echo "LOCATION_OVERRIDE=gatsu — using Gatot Subroto"
+            echo "lat=-6.224944" >> $GITHUB_OUTPUT
+            echo "lng=106.814500" >> $GITHUB_OUTPUT
+            echo "label=Gatot Subroto (Override)" >> $GITHUB_OUTPUT
           else
-            echo "Tue-Thu — using default location"
-            echo "lat=-6.1993335" >> $GITHUB_OUTPUT
-            echo "lng=106.7623687" >> $GITHUB_OUTPUT
-            echo "label=Default Office (Tue-Thu)" >> $GITHUB_OUTPUT
+            DOW=$(date -u +%u)
+            if [ "$DOW" = "1" ] || [ "$DOW" = "5" ]; then
+              echo "Monday/Friday — using alternate location"
+              echo "lat=-6.209077123779666" >> $GITHUB_OUTPUT
+              echo "lng=106.63438083176038" >> $GITHUB_OUTPUT
+              echo "label=Home (Mon/Fri)" >> $GITHUB_OUTPUT
+            else
+              echo "Tue-Thu — using default location"
+              echo "lat=-6.1993335" >> $GITHUB_OUTPUT
+              echo "lng=106.7623687" >> $GITHUB_OUTPUT
+              echo "label=Default Office (Tue-Thu)" >> $GITHUB_OUTPUT
+            fi
           fi
 
       - name: Record clock time
