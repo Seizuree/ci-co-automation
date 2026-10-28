@@ -45,39 +45,54 @@ export async function launchStealthBrowser() {
     colorScheme: 'light',
     hasTouch: false,
     javaScriptEnabled: true,
+    extraHTTPHeaders: {
+      'sec-ch-ua': '"Chromium";v="136", "Google Chrome";v="136", "Not-A.Brand";v="99"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"',
+    },
   });
 
   // Stealth patches
   await context.addInitScript(({ lat, lng }) => {
-    // Override webdriver flag
-    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
 
-    // Fake plugins
-    Object.defineProperty(navigator, 'plugins', {
-      get: () => [1, 2, 3, 4, 5],
+    const pluginData = [
+      { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+      { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+      { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
+    ];
+    const pluginArray = pluginData.map((p) => {
+      const plugin = Object.create(Plugin.prototype);
+      Object.defineProperty(plugin, 'name', { get: () => p.name });
+      Object.defineProperty(plugin, 'filename', { get: () => p.filename });
+      Object.defineProperty(plugin, 'description', { get: () => p.description });
+      Object.defineProperty(plugin, 'length', { get: () => 0 });
+      return plugin;
     });
+    Object.defineProperty(pluginArray, 'length', { get: () => pluginData.length });
+    Object.defineProperty(navigator, 'plugins', { get: () => pluginArray });
 
-    // Fake languages
     Object.defineProperty(navigator, 'languages', {
       get: () => ['id-ID', 'id', 'en-US', 'en'],
     });
 
-    // Fake chrome runtime
+    Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
+
     window.chrome = {
       runtime: {},
-      loadTimes: function () { },
-      csi: function () { },
+      loadTimes: function () {},
+      csi: function () {},
       app: {},
     };
 
-    // Override Permissions.query
     const originalQuery = window.navigator.permissions.query;
     window.navigator.permissions.query = (parameters) =>
       parameters.name === 'notifications'
         ? Promise.resolve({ state: Notification.permission })
         : originalQuery(parameters);
 
-    // Block WebRTC IP leak
     if (window.RTCPeerConnection) {
       const OriginalRTC = window.RTCPeerConnection;
       window.RTCPeerConnection = class extends OriginalRTC {
@@ -88,7 +103,6 @@ export async function launchStealthBrowser() {
       };
     }
 
-    // Override navigator.geolocation
     navigator.geolocation.getCurrentPosition = function (success) {
       success({
         coords: {
