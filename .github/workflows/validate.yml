@@ -88,6 +88,11 @@ jobs:
         env:
           TS_EXIT_NODE: ${{ secrets.TS_EXIT_NODE }}
         run: |
+          echo "=== Tailscale status ==="
+          sudo tailscale status || true
+          echo "=== Available exit nodes ==="
+          sudo tailscale exit-node list || true
+          echo "=== Setting exit node: ${TS_EXIT_NODE} ==="
           for attempt in 1 2 3; do
             sudo -E tailscale set --exit-node="$TS_EXIT_NODE" --accept-routes
             sleep 8
