@@ -88,6 +88,8 @@ jobs:
         env:
           TS_EXIT_NODE: ${{ secrets.TS_EXIT_NODE }}
         run: |
+          echo "=== Waiting for tailnet sync ==="
+          sleep 10
           echo "=== Tailscale status ==="
           sudo tailscale status || true
           echo "=== Available exit nodes ==="
